@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import tensorflow as tf
 import time
 
@@ -221,19 +222,43 @@ time: {3}s, total time: {4}s'.format(i, ave_train_loss,
 
 # ---------------------------------------------------------------------------- #
 
-from tensorflow.examples.tutorials.mnist import input_data
-dt = input_data.read_data_sets('data/mnist', one_hot=True)
+# from tensorflow.examples.tutorials.mnist import input_data
+# dt = input_data.read_data_sets('data/mnist', one_hot=True)
+# data = [dt.train.images, dt.train.labels]
+
+
+import pandas as pd 
+
+filepath = os.path.abspath(os.path.join('./Data/fer2013/', 'fer2013.csv'))
+
+dt = pd.read_csv(filepath, sep=',', header=0)
+
+train_dt = dt.loc[dt['Usage']=='Training',:]
+validation_dt = dt.loc[dt['Usage']=='PrivateTest',:]
+test_dt = dt.loc[dt['Usage']=='PublicTest',:]
+
+# Convert labels into 1 hot encoding
+labels = np.zeros((train_dt['emotion'].shape[0], 7))
+labels[np.arange(labels.shape[0]), train_dt['emotion']] = 1
+
+data = [np.array([i.split() for i in train_dt['pixels']], dtype=int), labels]
+
+# ---------------------------------------------------------------------------- #
+
 
 # data = np.array([list(dt.train.images), list(dt.train.labels)])
-data = [dt.train.images, dt.train.labels]
 input_dim = data[0].shape[1]
 output_dim = data[1].shape[1]
+
+img_shape = [48,48]
+
+tensorboard_name = 'fer2013'
 # ---------------------------------------------------------------------------- #
 
 
 
 n_training_epochs = 1
-batch_size = 100
+batch_size = 1000
 learning_rate = 0.001
 
 
@@ -243,7 +268,7 @@ Y = tf.placeholder(dtype=tf.float32, shape=[None, output_dim], name="image_targe
 
 
 # Define the CNN
-conv1out, conv2out, w, b, logits_op, preds_op, xentropy_op, loss_op = convnet(tf.reshape(X, [-1, 28, 28, 1]), Y, convlayer_sizes=[output_dim,output_dim])
+conv1out, conv2out, w, b, logits_op, preds_op, xentropy_op, loss_op = convnet(tf.reshape(X, [-1, img_shape[0], img_shape[1], 1]), Y, convlayer_sizes=[output_dim,output_dim], outputsize=output_dim)
 tf.summary.histogram('pre_activations', logits_op)
 
 
@@ -278,14 +303,16 @@ sess.run(init_op)
 
 # Initialise TensorBoard Summary writers
 dtstr = "{:%b_%d_%H-%M-%S}".format(datetime.now())
-train_writer = tf.summary.FileWriter('./summaries/'+dtstr+'/train', sess.graph)
-test_writer  = tf.summary.FileWriter('./summaries/'+dtstr+'/test')
+train_writer = tf.summary.FileWriter('./summaries/'+tensorboard_name+'_'+dtstr+'/train', sess.graph)
+test_writer  = tf.summary.FileWriter('./summaries/'+tensorboard_name+'_'+dtstr+'/test')
 
 # Train
 print('Starting Training...')
+
 train(sess, data, n_training_epochs, batch_size,
       summaries_op, accuracy_summary_op, train_writer, test_writer,
       X, Y, train_op, loss_op, accuracy_op)
+
 print('Training Complete')
 
 # Clean up
