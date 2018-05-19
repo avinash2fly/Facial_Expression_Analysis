@@ -88,7 +88,7 @@ def accuracy(sess, data, batches, batch_size, X, Y, accuracy_op):
         accuracy_batch = \
             sess.run(accuracy_op, feed_dict={X: batch[0], Y: batch[1]})
         overall_accuracy += accuracy_batch
-    print(overall_accuracy)
+    # print(overall_accuracy)
     return overall_accuracy / n_batches
 
 
@@ -131,7 +131,7 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
                              kernel_initializer=None)
     layer1_norm = tf.layers.batch_normalization(layer1_conv2)
     layer1_maxPool = tf.layers.max_pooling2d(layer1_norm,pool_size=(2,2),strides=(2,2))
-    layer1_dropout = tf.layers.dropout(layer1_maxPool,rate=0.25)
+    layer1_dropout = tf.layers.dropout(layer1_maxPool,rate=0.5)
 
     # --------------------------layer 2-----------------------------------
     num_features *= 2
@@ -150,7 +150,7 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
                                    )
     layer2_norm2 = tf.layers.batch_normalization(layer2_conv2)
     layer2_maxPool = tf.layers.max_pooling2d(layer2_norm2, pool_size=(2, 2), strides=(2, 2))
-    layer2_dropout = tf.layers.dropout(layer2_maxPool, rate=0.25)
+    layer2_dropout = tf.layers.dropout(layer2_maxPool, rate=0.5)
 
     # --------------------------layer 3----------------------------------
     num_features *= 2
@@ -169,7 +169,7 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
                                     )
     layer3_norm2 = tf.layers.batch_normalization(layer3_conv2)
     layer3_maxPool = tf.layers.max_pooling2d(layer3_norm2, pool_size=(2, 2), strides=(2, 2))
-    layer3_dropout = tf.layers.dropout(layer3_maxPool, rate=0.25)
+    layer3_dropout = tf.layers.dropout(layer3_maxPool, rate=0.5)
 
     # --------------------------layer 4----------------------------------
     # num_features *= 2
@@ -197,18 +197,18 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
     X = tf.reshape(layer3_dropout, [tf.shape(layer3_dropout)[0], dim])
 
 
-    # dense1 = tf.layers.dense(X,num_features,activation=tf.nn.relu)
-    # dense1_drop = tf.layers.dropout(dense1, rate=0.4)
-    #
-    # num_features //= 2
-    # dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
-    # dense2_drop = tf.layers.dropout(dense2, rate=0.5)
+    dense1 = tf.layers.dense(X,num_features,activation=tf.nn.relu)
+    dense1_drop = tf.layers.dropout(dense1, rate=0.5)
 
-    # num_features //= 2
-    dense3 = tf.layers.dense(X, num_features, activation=tf.nn.relu)
-    dense3_drop = tf.layers.dropout(dense3, rate=0.5)
+    num_features //= 2
+    dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
+    dense2_drop = tf.layers.dropout(dense2, rate=0.5)
 
-    logits = tf.layers.dense(inputs=dense3_drop,units=7)
+    num_features //= 2
+    dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
+    dense3_drop = tf.layers.dropout(dense3, rate=0.4)
+
+    logits = tf.layers.dense(inputs=dense2_drop,units=7)
 
 
     # preds will hold the predicted class
@@ -297,7 +297,7 @@ filepath = os.path.abspath(os.path.join('./', 'fer20131000.csv'))
 dt = pd.read_csv(filepath, sep=',', header=0)
 
 train_dt = dt.loc[dt['Usage'] == 'Training', :]
-# train_dt = train_dt[:1000]
+train_dt = train_dt[:256]
 validation_dt = dt.loc[dt['Usage'] == 'PrivateTest', :]
 test_dt = dt.loc[dt['Usage'] == 'PublicTest', :]
 
@@ -313,12 +313,15 @@ faces=[]
 
 for pixel_sequence in pixels:
     face = [int(pixel) for pixel in pixel_sequence.split(' ')] # 2
-    # face = np.asarray(face).reshape(img_shape[0], img_shape[1]) # 3
-    face = np.array(face)
+    face = np.asarray(face).reshape(img_shape[0], img_shape[1]) # 3
+    # face = np.array(face)
+    face = cv2.resize(face.astype('uint8'), (img_shape[0], img_shape[1]))
+    face = cv2.equalizeHist(face)
     face = face / 255.0 # 4
-    face = face.astype('uint8')
+    # face = face.astype('uint8')
+    face = np.reshape(face,[img_shape[0]* img_shape[1]])
     # face = cv2.resize(face.astype('uint8'), (img_shape[0], img_shape[1])) # 5
-    faces.append(face.astype('float32'))
+    faces.append(face)
 
 
 data =[np.array(faces),labels]
