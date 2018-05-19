@@ -289,12 +289,13 @@ time: {3}s, total time: {4}s'.format(i, ave_train_loss,
 
 import pandas as pd
 
-filepath = os.path.abspath(os.path.join('./Data/fer2013/', 'fer2013.csv'))
+# filepath = os.path.abspath(os.path.join('./Data/fer2013/', 'fer2013.csv'))
+filepath = os.path.abspath(os.path.join('./', 'fer20131000.csv'))
 
 dt = pd.read_csv(filepath, sep=',', header=0)
 
 train_dt = dt.loc[dt['Usage'] == 'Training', :]
-train_dt = train_dt[:1000]
+# train_dt = train_dt[:1000]
 validation_dt = dt.loc[dt['Usage'] == 'PrivateTest', :]
 test_dt = dt.loc[dt['Usage'] == 'PublicTest', :]
 
