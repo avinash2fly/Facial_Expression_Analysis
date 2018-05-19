@@ -200,15 +200,15 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
     dense1 = tf.layers.dense(X,num_features,activation=tf.nn.relu)
     dense1_drop = tf.layers.dropout(dense1, rate=0.5)
 
-    num_features //= 2
-    dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
-    dense2_drop = tf.layers.dropout(dense2, rate=0.5)
+    # num_features //= 2
+    # dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
+    # dense2_drop = tf.layers.dropout(dense2, rate=0.5)
+    #
+    # num_features //= 2
+    # dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
+    # dense3_drop = tf.layers.dropout(dense3, rate=0.4)
 
-    num_features //= 2
-    dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
-    dense3_drop = tf.layers.dropout(dense3, rate=0.4)
-
-    logits = tf.layers.dense(inputs=dense2_drop,units=7)
+    logits = tf.layers.dense(inputs=dense1_drop,units=7)
 
 
     # preds will hold the predicted class
