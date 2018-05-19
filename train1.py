@@ -1,9 +1,10 @@
+from __future__ import print_function
 import numpy as np
 import os
 import tensorflow as tf
 import time
 import cv2
-from __future__ import print_function
+
 
 from datetime import datetime
 
