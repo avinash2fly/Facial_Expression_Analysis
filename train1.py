@@ -200,15 +200,15 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
     dense1 = tf.layers.dense(X,num_features,activation=tf.nn.relu)
     dense1_drop = tf.layers.dropout(dense1, rate=0.5)
 
-    # num_features //= 2
-    # dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
-    # dense2_drop = tf.layers.dropout(dense2, rate=0.5)
-    #
-    # num_features //= 2
-    # dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
-    # dense3_drop = tf.layers.dropout(dense3, rate=0.4)
+    num_features //= 2
+    dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
+    dense2_drop = tf.layers.dropout(dense2, rate=0.5)
 
-    logits = tf.layers.dense(inputs=dense1_drop,units=7)
+    num_features //= 2
+    dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
+    dense3_drop = tf.layers.dropout(dense3, rate=0.4)
+
+    logits = tf.layers.dense(inputs=dense3_drop,units=7)
 
 
     # preds will hold the predicted class
@@ -226,16 +226,19 @@ def train(sess, data, n_epochs, batch_size,
           X, Y, train_op, loss_op, accuracy_op, ratio=[70, 20, 10]):
     # record starting time
     train_start = time.time()
-
+    saver = tf.train.Saver()
     train_data, test_data, validation_data = split_data(data, ratio)
 
+
     # Run through the entire dataset n_training_epochs times
+    train_loss=100;
     for i in range(n_epochs):
         # Initialise statistics
         training_loss = 0
         epoch_start = time.time()
 
         batches = get_batch(train_data, batch_size)
+        t_batches = get_batch(test_data, 10)
         n_batches = len(batches)
 
         # Run the SGD train op for each minibatch
@@ -256,7 +259,12 @@ def train(sess, data, n_epochs, batch_size,
         train_accuracy = \
             accuracy(sess, train_data, batches, batch_size, X, Y, accuracy_op)
         test_accuracy = \
-            accuracy(sess, test_data, batches, batch_size, X, Y, accuracy_op)
+            accuracy(sess, test_data, t_batches, batch_size, X, Y, accuracy_op)
+
+        if train_loss > ave_train_loss:
+            save_path = saver.save(sess, "./models/model.ckpt")
+            train_loss = ave_train_loss
+            print("saved checkpoint")
 
         # log accuracy at the current epoch on training and test sets
         train_acc_summary = sess.run(accuracy_summary_op,
@@ -377,6 +385,7 @@ init_op = tf.global_variables_initializer()
 # Start session
 sess = tf.Session()
 sess.run(init_op)
+
 
 # Initialise TensorBoard Summary writers
 dtstr = "{:%b_%d_%H-%M-%S}".format(datetime.now())
