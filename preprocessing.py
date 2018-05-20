@@ -23,6 +23,8 @@ img = np.array(train['pixels'].loc[0].split(), dtype=int)
 label = np.array(train['emotion'].loc[0])
 reshape_img = np.reshape(img, shape=(48,48))
 
+# # Blur image to filter out noises - fer2013 images is probably too small to be blurred.
+# img = cv2.GaussianBlur( img ,(3,3), 0)
 
 
 
