@@ -120,13 +120,13 @@ def convnet_bak(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=
     layer1_conv1 = tf.layers.conv2d(X, filters=num_features,
                              kernel_size=kernel,
                              # padding=padding,
-                             activation=tf.nn.relu, use_bias=True,
+                             activation=tf.nn.leaky_relu, use_bias=True,
                              kernel_initializer=None,
                              kernel_regularizer=regularizer)
     layer1_conv2 = tf.layers.conv2d(layer1_conv1, filters=num_features,
                              kernel_size=kernel,
                              padding=padding,
-                             activation=tf.nn.relu,
+                             activation=tf.nn.leaky_relu,
                              use_bias=True,
                              kernel_initializer=None)
     layer1_norm = tf.layers.batch_normalization(layer1_conv2)
@@ -137,14 +137,14 @@ def convnet_bak(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=
     num_features *= 2
     layer2_conv1 = tf.layers.conv2d(layer1_dropout, filters=num_features,
                                     kernel_size=kernel,
-                                    activation=tf.nn.relu,
+                                    activation=tf.nn.leaky_relu,
                                     use_bias=True,
                                     kernel_initializer=None
                                    )
     layer2_norm1 = tf.layers.batch_normalization(layer2_conv1)
     layer2_conv2 = tf.layers.conv2d(layer2_norm1, filters=num_features,
                                     kernel_size=kernel,
-                                    activation=tf.nn.relu,
+                                    activation=tf.nn.leaky_relu,
                                     use_bias=True,
                                     kernel_initializer=None
                                    )
@@ -156,14 +156,14 @@ def convnet_bak(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=
     num_features *= 2
     layer3_conv1 = tf.layers.conv2d(layer2_dropout, filters=num_features,
                                     kernel_size=kernel,
-                                    activation=tf.nn.relu,
+                                    activation=tf.nn.leaky_relu,
                                     use_bias=True,
                                     kernel_initializer=None
                                     )
     layer3_norm1 = tf.layers.batch_normalization(layer3_conv1)
     layer3_conv2 = tf.layers.conv2d(layer3_norm1, filters=num_features,
                                     kernel_size=kernel,
-                                    activation=tf.nn.relu,
+                                    activation=tf.nn.leaky_relu,
                                     use_bias=True,
                                     kernel_initializer=None
                                     )
@@ -197,15 +197,15 @@ def convnet_bak(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=
     X = tf.reshape(layer3_dropout, [tf.shape(layer3_dropout)[0], dim])
 
 
-    dense1 = tf.layers.dense(X,num_features,activation=tf.nn.relu)
+    dense1 = tf.layers.dense(X,num_features,activation=tf.nn.leaky_relu)
     dense1_drop = tf.layers.dropout(dense1, rate=0.5)
 
     num_features //= 2
-    dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
+    dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.leaky_relu)
     dense2_drop = tf.layers.dropout(dense2, rate=0.5)
 
     num_features //= 2
-    dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
+    dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.leaky_relu)
     dense3_drop = tf.layers.dropout(dense3, rate=0.4)
 
     logits = tf.layers.dense(inputs=dense2_drop,units=7)
@@ -457,7 +457,7 @@ tensorboard_name = 'fer2013m'
 
 
 n_training_epochs = 100
-batch_size =64
+batch_size = 128
 learning_rate = 0.001
 
 # Define dimension of input, X and output Y
