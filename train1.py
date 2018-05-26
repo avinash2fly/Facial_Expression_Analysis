@@ -5,7 +5,7 @@ import tensorflow as tf
 import time
 import cv2
 
-
+#2183
 from datetime import datetime
 
 
@@ -92,7 +92,7 @@ def accuracy(sess, data, batches, batch_size, X, Y, accuracy_op):
     return overall_accuracy / n_batches
 
 
-def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, padding="same"):
+def convnet_bak(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, padding="same"):
     """
     Create a Tensorflow model for a Convolutional Neural Network. The network
     should be of the following structure:
@@ -113,7 +113,7 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
     # w1 = tf.Variable(tf.truncated_normal([filter_shape[0], filter_shape[0]], stddev=1.0/math.sqrt(float(X.shape[1]))))
 
     num_features = 64
-    kernel = 3
+    kernel = 5
 
     # --------------------------layer 1-----------------------------------
     regularizer = tf.contrib.layers.l2_regularizer(scale=0.01)
@@ -208,7 +208,7 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
     dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.leaky_relu)
     dense3_drop = tf.layers.dropout(dense3, rate=0.4)
 
-    logits = tf.layers.dense(inputs=dense3_drop,units=7)
+    logits = tf.layers.dense(inputs=dense2_drop,units=7)
 
 
     # preds will hold the predicted class
@@ -216,6 +216,115 @@ def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, 
 
     # Cross entropy
     batch_xentropy = tf.nn.softmax_cross_entropy_with_logits(logits=preds, labels=Y)
+    batch_loss = tf.reduce_mean(batch_xentropy)
+
+    return logits, preds, batch_loss
+
+def convnet(X, Y, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, padding="same"):
+    """
+    Create a Tensorflow model for a Convolutional Neural Network. The network
+    should be of the following structure:
+    conv_layer1 -> conv_layer2 -> fully-connected -> output
+    :param X: The  input placeholder for images from the MNIST dataset
+    :param Y: The output placeholder for image labels
+    :return: The following variables should be returned in the following order.
+    conv1: A convolutional layer of convlayer_sizes[0] filters of shape filter_shape
+    conv2: A convolutional layer of convlayer_sizes[1] filters of shape filter_shape
+    w: Connection weights for final layer
+    b: biases for final layer
+    logits: The inputs to the activation function
+    preds: The outputs of the activation function (a probability
+    distribution over the 10 digits)
+    batch_xentropy: The cross-entropy loss for each image in the batch
+    batch_loss: The average cross-entropy loss of the batch
+    """
+    # w1 = tf.Variable(tf.truncated_normal([filter_shape[0], filter_shape[0]], stddev=1.0/math.sqrt(float(X.shape[1]))))
+
+    num_features = 64
+    kernel = 5
+
+    # --------------------------layer 1-----------------------------------
+    regularizer = tf.contrib.layers.l2_regularizer(scale=0.01)
+    layer1_conv1 = tf.layers.conv2d(X, filters=num_features,
+                             kernel_size=kernel,
+                             # padding=padding,
+                             activation=tf.nn.relu, use_bias=True,
+                             kernel_initializer=None,
+                             kernel_regularizer=regularizer)
+
+    layer1_norm = tf.layers.batch_normalization(layer1_conv1)
+    layer1_maxPool = tf.layers.max_pooling2d(layer1_norm,pool_size=(3,3),strides=(2,2))
+    # layer1_dropout = tf.layers.dropout(layer1_maxPool,rate=0.5)
+
+    # --------------------------layer 2-----------------------------------
+    # num_features *= 2
+    kernel = 5
+    layer2_conv1 = tf.layers.conv2d(layer1_maxPool, filters=num_features,
+                                    kernel_size=kernel,
+                                    activation=tf.nn.relu,
+                                    use_bias=True,
+                                    kernel_initializer=None
+                                   )
+
+    layer2_maxPool = tf.layers.max_pooling2d(layer2_conv1, pool_size=(3, 3), strides=(2, 2))
+    # layer2_dropout = tf.layers.dropout(layer2_maxPool, rate=0.5)
+
+    # --------------------------layer 3----------------------------------
+    num_features *= 2
+    kernel = 4
+    layer3_conv1 = tf.layers.conv2d(layer2_maxPool, filters=num_features,
+                                    kernel_size=kernel,
+                                    activation=tf.nn.relu,
+                                    use_bias=True,
+                                    kernel_initializer=None
+                                    )
+    layer3_dropout = tf.layers.dropout(layer3_conv1, rate=0.5)
+
+    # --------------------------layer 4----------------------------------
+    # num_features *= 2
+    # layer4_conv1 = tf.layers.conv2d(layer3_dropout, filters=num_features,
+    #                                 # kernel_size=kernel,
+    #                                 activation=tf.nn.relu,
+    #                                 use_bias=True,
+    #                                 kernel_initializer=None
+    #                                 )
+    # layer4_norm1 = tf.layers.batch_normalization(layer4_conv1)
+    # layer4_conv2 = tf.layers.conv2d(layer4_norm1, filters=num_features,
+    #                                 # kernel_size=kernel,
+    #                                 activation=tf.nn.relu,
+    #                                 use_bias=True,
+    #                                 kernel_initializer=None
+    #                                 )
+    # layer4_norm2 = tf.layers.batch_normalization(layer4_conv2)
+    # layer4_maxPool = tf.layers.max_pooling2d(layer4_norm2, pool_size=(2, 2), strides=(2, 2))
+    # layer4_dropout = tf.layers.dropout(layer4_maxPool, rate=0.5)
+
+    dim = int(layer3_dropout.get_shape()[1] * layer3_dropout.get_shape()[2] * layer3_dropout.get_shape()[3])
+
+
+    # -------------------------Fully connected layer ----------------------
+    X = tf.reshape(layer3_dropout, [tf.shape(layer3_dropout)[0], dim])
+
+
+    dense1 = tf.layers.dense(X,num_features,activation=tf.nn.relu)
+    # dense1_drop = tf.layers.dropout(dense1, rate=0.5)
+
+    # num_features //= 2
+    # dense2 = tf.layers.dense(dense1_drop, num_features, activation=tf.nn.relu)
+    # dense2_drop = tf.layers.dropout(dense2, rate=0.5)
+
+    # num_features //= 2
+    # dense3 = tf.layers.dense(dense2_drop, num_features, activation=tf.nn.relu)
+    # dense3_drop = tf.layers.dropout(dense3, rate=0.4)
+
+    logits = tf.layers.dense(inputs=dense1,units=7)
+
+
+    # preds will hold the predicted class
+    preds = tf.nn.softmax(logits)
+
+    # Cross entropy
+    batch_xentropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=preds, labels=Y)
     batch_loss = tf.reduce_mean(batch_xentropy)
 
     return logits, preds, batch_loss
@@ -300,12 +409,12 @@ time: {3}s, total time: {4}s'.format(i, ave_train_loss,
 import pandas as pd
 
 # filepath = os.path.abspath(os.path.join('./Data/fer2013/', 'fer2013.csv'))
-filepath = os.path.abspath(os.path.join('./', 'fer20131000.csv'))
+filepath = os.path.abspath(os.path.join('./', 'fer2013m.csv'))
 
 dt = pd.read_csv(filepath, sep=',', header=0)
-
+print("started Executing")
 train_dt = dt.loc[dt['Usage'] == 'Training', :]
-train_dt = train_dt[:256]
+# train_dt = train_dt[:100]
 validation_dt = dt.loc[dt['Usage'] == 'PrivateTest', :]
 test_dt = dt.loc[dt['Usage'] == 'PublicTest', :]
 
@@ -342,7 +451,7 @@ data =[np.array(faces),labels]
 input_dim = data[0].shape[1]
 output_dim = data[1].shape[1]
 
-tensorboard_name = 'fer2013'
+tensorboard_name = 'fer2013m'
 # ---------------------------------------------------------------------------- #
 
 
