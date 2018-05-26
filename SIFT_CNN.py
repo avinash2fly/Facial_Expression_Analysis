@@ -53,16 +53,6 @@ def accuracy(sess, data, batches, batch_size, X, Y, accuracy_op):
 
 def convnet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsize=10, padding="same", SIFT_size = 2048):
     """
-    Create a Tensorflow model for a Convolutional Neural Network. The network
-    should be of the following structure:
-    conv_layer1 -> conv_layer2 -> fully-connected -> output
-    :param X: The  input placeholder for images from the MNIST dataset
-    :param Y: The output placeholder for image labels
-    :return: The following variables should be returned in the following order.
-    conv1: A convolutional layer of convlayer_sizes[0] filters of shape filter_shape
-    conv2: A convolutional layer of convlayer_sizes[1] filters of shape filter_shape
-    w: Connection weights for final layer
-    b: biases for final layer
     logits: The inputs to the activation function
     preds: The outputs of the activation function (a probability
     distribution over the 10 digits)
@@ -183,7 +173,7 @@ def convnet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsiz
     # dense2_drop = tf.layers.dropout(dense2, rate=0.5)
 
     # num_features //= 2
-    dense3 = tf.layers.dense(X, num_features, activation=activation, )
+    dense3 = tf.layers.dense(X, num_features, activation=activation)
     dense3_drop = tf.layers.dropout(dense3, rate=0.4)
 
     # ------------------------- SIFT Layer 1 ------------------------------
@@ -198,15 +188,14 @@ def convnet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputsiz
     # ------------------------- Combined Layer ------------------------------
     dense_combined = tf.reduce_mean([denseSIFT_drop, dense3_drop], 0)  # [1.5, 1.5]
 
-
+    # Pre-activation
     logits = tf.layers.dense(inputs=dense_combined,units=7)
 
-
-    # preds will hold the predicted class
+    # Pass logits through activation function
     preds = tf.nn.softmax(logits)
 
     # Cross entropy
-    batch_xentropy = tf.nn.softmax_cross_entropy_with_logits(logits=preds, labels=Y)
+    batch_xentropy = tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=Y)
     batch_loss = tf.reduce_mean(batch_xentropy)
 
     return logits, preds, batch_loss
@@ -462,7 +451,7 @@ if __name__ == "__main__":
 
 	# -------------------------- Read Images ------------------------ #
 
-	filepath = os.path.abspath(os.path.join('./Data/', 'fer2013m.csv'))
+	filepath = os.path.abspath(os.path.join('./Data/', 'CK_plus.csv'))
 	# filepath = os.path.abspath(os.path.join('./', 'fer20131000.csv'))
 
 	dt = pd.read_csv(filepath, sep=',', header=0)
@@ -483,18 +472,11 @@ if __name__ == "__main__":
 	    face = np.array([int(pixel) for pixel in pixel_sequence.split(' ')], dtype=np.uint8)
 	    raw_faces.append(face.copy())
 
-	    # face = np.asarray(face).reshape(img_shape[0], img_shape[1]) # 3
-	    # face = cv2.resize(face.astype('uint8'), (img_shape[0], img_shape[1]))
 	    face = face.reshape(tuple(img_shape))
 	    face = cv2.equalizeHist(face)
 	    face = face / 255.0 # 4
-	    # face = face.astype('uint8').flatten()
 
-	    # face = (face - np.mean(face))/np.std(face)
 	    face = face.flatten()
-
-	    # face = np.reshape(face,[img_shape[0]* img_shape[1]])
-	    # face = cv2.resize(face.astype('uint8'), (img_shape[0], img_shape[1])) # 5
 	    faces.append(face)
 
 	data =[np.array(faces), labels, np.array(raw_faces)]
@@ -502,11 +484,11 @@ if __name__ == "__main__":
 	input_dim = data[0].shape[1]
 	output_dim = data[1].shape[1]
 
-	tensorboard_name = 'fer2013_norm'
+	tensorboard_name = 'CK_plus'
 
 
 	n_training_epochs = 100
-	batch_size = 128
+	batch_size = 64
 	learning_rate = 0.005
 
 	if N_CLUSTER > data[0].shape[0]:
