@@ -16,7 +16,7 @@ from imutils.face_utils import rect_to_bb
 # ------------------------------------------------------------------------------------- #
 # GLOBAL VARIABLES
 # ------------------------------------------------------------------------------------- #
-output_file = './Data/CK_plus.csv'
+output_file = './Data/CK_plus_128.csv'
 img_Path = "./Data/CK+/cohn-kanade-images"
 label_Path = "./Data/CK+/Emotion"
 face_pred_path = "shape_predictor_68_face_landmarks.dat"
@@ -24,11 +24,13 @@ face_pred_path = "shape_predictor_68_face_landmarks.dat"
 LEFT_EYE_IDXS = [i for i in range(36, 42)]
 RIGHT_EYE_IDXS = [i for i in range(42, 48)]
 
-target_width = 48
+target_width = 128
 target_height = target_width
 
-target_left_eye_pos = [0.35, 0.35]   # [x,y] coordinate
-target_right_eye_pos = [0.65, 0.35]
+scale = 0.4
+
+target_left_eye_pos = [scale, 0.35]   # [x,y] coordinate
+target_right_eye_pos = [1-scale, 0.35]
 target_distance = target_width*(target_right_eye_pos[0] - target_left_eye_pos[0])
 
 img_shape = (target_width,target_height)
@@ -65,10 +67,6 @@ def detect_facial_landmarks(img, detector, draw=False, drawIdx = None):
 
 	return faces, landmarks
 
-
-
-def align_face(img):
-	pass
 
 # ------------------------------------------------------------------------------------- #
 
@@ -126,6 +124,10 @@ for object_img_path, object_label_path in zip(object_Dirs, label_Dirs):
 			#  Read image and label 
 			img = cv2.imread(os.path.join(img_Path, object_img_path, emo_img_path, emo_img_files[0]),0)
 			label = open(os.path.join(label_Path, object_label_path, emo_label_path, emo_label_files[0]), 'r').read().strip()[0]
+
+			# pixels = ' '.join(img.flatten().astype('str'))
+			# label = int(label)-1
+			# output.write(pixels+','+str(label)+',Training\n')
 
 			# ------------------------------------------------------------------------------------- #
 			#   *****************************    IMAGE PROCESSING    *****************************  #
@@ -186,6 +188,7 @@ for object_img_path, object_label_path in zip(object_Dirs, label_Dirs):
 
 				# apply the affine transformation
 				final_img = cv2.warpAffine(img, M, (target_width, target_height), flags=cv2.INTER_CUBIC)
+				final_img = cv2.resize(final_img, img_shape)
 
 				# (x, y, w, h) = rect_to_bb(face)
 				# faceOrig = cv2.resize(img[y:y + h, x:x + w], img_shape)
@@ -194,9 +197,9 @@ for object_img_path, object_label_path in zip(object_Dirs, label_Dirs):
 				# fig.subplots_adjust(hspace=0.3)
 
 				# plt.subplot(1, 2, 1)
-				# plt.imshow(faceOrig)
+				# plt.imshow(img)
 				# plt.subplot(1, 2, 2)
-				# plt.imshow(output)
+				# plt.imshow(final_img)
 
 				# plt.show()
 
@@ -207,6 +210,7 @@ for object_img_path, object_label_path in zip(object_Dirs, label_Dirs):
 				label = int(label)-1
 
 				output.write(pixels+','+str(label)+',Training\n')
+
 
 output.close()
 

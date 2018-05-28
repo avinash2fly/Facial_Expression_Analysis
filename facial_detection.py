@@ -32,6 +32,7 @@ import numpy as np
 # ------------------------------------------------------------------------------------ #
 
 import dlib
+import tensorflow as tf
 from imutils import face_utils
 from imutils.face_utils import rect_to_bb
 
@@ -121,7 +122,7 @@ while True:
         target_height = img.shape[0]
 
     # 2.1 Detect face landmarks using dlib
-    faces, landmarks = detect_facial_landmarks(img, detector, draw=True, drawIdx=None )#LEFT_EYE_IDXS+RIGHT_EYE_IDXS)
+    faces, landmarks = detect_facial_landmarks(img, detector, draw=False, drawIdx=None )#LEFT_EYE_IDXS+RIGHT_EYE_IDXS)
 
     for face, landmark in zip(faces, landmarks):
 

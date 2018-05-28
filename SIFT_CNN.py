@@ -451,8 +451,8 @@ if __name__ == "__main__":
 
 	# -------------------------- Read Images ------------------------ #
 
-	filepath = os.path.abspath(os.path.join('./Data/', 'CK_plus.csv'))
-	# filepath = os.path.abspath(os.path.join('./', 'fer20131000.csv'))
+	filepath = os.path.abspath(os.path.join('./Data/', 'CK_plus_48.csv'))
+	# filepath = os.path.abspath(os.path.join('./Data/fer2013/', 'fer2013.csv'))
 
 	dt = pd.read_csv(filepath, sep=',', header=0)
 
