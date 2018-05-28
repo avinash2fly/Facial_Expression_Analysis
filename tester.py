@@ -221,8 +221,10 @@ learning_rate = 0.005
 #     data_kp = extractKeyPoints(raw_faces)
 
 #     # Get descriptors and get clusters
-#     clusterer = getCluster(data_kp, n_cluster=N_CLUSTER)
-    
+#     saved_params = pickle.load( open( "./pickle_jar/pickle_objects.p", "rb" ) )
+#     clusterer = saved_params['clusterer']
+#     N_CLUSTER = saved_params['N_CLUSTER']
+
 #     # Get bag of features count for each image
 #     SIFT_data = convert2bagOfFeatures(data_kp, clusterer, n_cluster = N_CLUSTER)
 
@@ -276,6 +278,51 @@ learning_rate = 0.005
 
 
 # ------------------------ Read Images from webcam ------------------------ #
+input_dim = 2304
+output_dim = 7
+
+# Get descriptors and get clusters
+saved_params = pickle.load( open( "./pickle_jar/pickle_objects.p", "rb" ) )
+clusterer = saved_params['clusterer']
+N_CLUSTER = saved_params['N_CLUSTER']
+
+# ------------------ Read Model from Checkpoint ---------------------- #
+
+# Define input placeholder
+X = tf.placeholder(dtype=tf.float32, shape=[None, input_dim], name="image_input")
+Y = tf.placeholder(dtype=tf.float32, shape=[None, output_dim], name="image_target_onehot")
+SIFT = tf.placeholder(dtype=tf.float32, shape=[None, N_CLUSTER-1], name="SIFT_input")
+
+# Define the CNN
+logits_op, preds_op, loss_op = NeuralNet(tf.reshape(X, [-1, img_shape[0], img_shape[1], 1]), Y, SIFT, 
+    convlayer_sizes=[output_dim, output_dim], outputsize=output_dim, SIFT_size=2048)
+tf.summary.histogram('pre_activations', logits_op)
+
+# The training op performs a step of stochastic gradient descent on a minibatch
+optimizer = tf.train.AdamOptimizer  
+train_op = optimizer(learning_rate).minimize(loss_op)
+
+# Prediction and accuracy ops
+accuracy_op = get_accuracy_op(preds_op, Y)
+
+# TensorBoard for visualisation
+# Merge all the summaries and write them out to /tmp/mnist_logs (by default)
+summaries_op = tf.summary.merge_all()
+
+# Separate accuracy summary so we can use train and test sets
+accuracy_placeholder = tf.placeholder(shape=[], dtype=tf.float32)
+accuracy_summary_op = tf.summary.scalar("accuracy", accuracy_placeholder)
+
+# Global initializer
+init_op = tf.global_variables_initializer()
+
+# Start session
+sess = tf.Session()
+
+saver = tf.train.Saver()
+saver.restore(sess, "./models/model.ckpt")
+
+data_kp = None
 
 cap = cv2.VideoCapture(0);
 emotion = {0:'neutral', 1:'anger', 2:'contempt', 3:'disgust', 4:'fear', 5:'happy', 6:'sadness', 7:'surprise'}
@@ -293,7 +340,7 @@ while True:
 
     if len(data[0]) == 0:
         continue
-        
+
     input_dim = data[0].shape[1]
     output_dim = 7
 
@@ -303,56 +350,18 @@ while True:
     # if N > SIFT_train.shape[0]:
     #   N = int(sqrt(SIFT_train.shape[0]))
 
-    # Extract key points and descriptors
-    data_kp = extractKeyPoints(raw_faces)
-
-    # Get descriptors and get clusters
-    clusterer = getCluster(data_kp, n_cluster=N_CLUSTER)
-    
-    # Get bag of features count for each image
-    SIFT_data = convert2bagOfFeatures(data_kp, clusterer, n_cluster = N_CLUSTER)
+    if data_kp is None : 
+        # Extract key points and descriptors
+        data_kp = extractKeyPoints(raw_faces)
+        
+        # Get bag of features count for each image
+        SIFT_data = convert2bagOfFeatures(data_kp, clusterer, n_cluster = N_CLUSTER)
 
     # Append result to train_data
     data.append(SIFT_data/N_CLUSTER)
 
 
-    # ------------------ Read Model from Checkpoint ---------------------- #
-
-    # Define input placeholder
-    X = tf.placeholder(dtype=tf.float32, shape=[None, input_dim], name="image_input")
-    Y = tf.placeholder(dtype=tf.float32, shape=[None, output_dim], name="image_target_onehot")
-    SIFT = tf.placeholder(dtype=tf.float32, shape=[None, N_CLUSTER-1], name="SIFT_input")
-
-    # Define the CNN
-    logits_op, preds_op, loss_op = NeuralNet(tf.reshape(X, [-1, img_shape[0], img_shape[1], 1]), Y, SIFT, 
-        convlayer_sizes=[output_dim, output_dim], outputsize=output_dim, SIFT_size=2048)
-    tf.summary.histogram('pre_activations', logits_op)
-
-    # The training op performs a step of stochastic gradient descent on a minibatch
-    optimizer = tf.train.AdamOptimizer  
-    train_op = optimizer(learning_rate).minimize(loss_op)
-
-    # Prediction and accuracy ops
-    accuracy_op = get_accuracy_op(preds_op, Y)
-
-    # TensorBoard for visualisation
-    # Merge all the summaries and write them out to /tmp/mnist_logs (by default)
-    summaries_op = tf.summary.merge_all()
-
-    # Separate accuracy summary so we can use train and test sets
-    accuracy_placeholder = tf.placeholder(shape=[], dtype=tf.float32)
-    accuracy_summary_op = tf.summary.scalar("accuracy", accuracy_placeholder)
-
-    # Global initializer
-    init_op = tf.global_variables_initializer()
-
-    # Start session
-    sess = tf.Session()
-
-    saver = tf.train.Saver()
-    saver.restore(sess, "./models/model.ckpt")
-
-    feed_dict = {X : data[0], Y : data[1], SIFT : data[2]}
+    feed_dict = {X : data[0], SIFT : data[1]}
 
     _prediction = sess.run([preds_op], feed_dict)
 
