@@ -142,7 +142,7 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     # --------------------------layer 3----------------------------------
     num_features *= 2
 
-    layer3 = Block(layer1, num_features, activation, bias_initializer, kernel_initializer, regularizer,
+    layer3 = Block(layer2, num_features, activation, bias_initializer, kernel_initializer, regularizer,
         dropout=0.5, residual=False, kernel=3, padding=padding)
 
 
