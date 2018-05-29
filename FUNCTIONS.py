@@ -118,8 +118,6 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     batch_xentropy: The cross-entropy loss for each image in the batch
     batch_loss: The average cross-entropy loss of the batch
     """
-    # w1 = tf.Variable(tf.truncated_normal([filter_shape[0], filter_shape[0]], stddev=1.0/math.sqrt(float(X.shape[1]))))
-
 
     num_features = 32
     kernel = 3
@@ -127,7 +125,8 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     # bias_initializer = tf.truncated_normal_initializer()
     # kernel_initializer = None
     bias_initializer = None
-    activation = tf.nn.leaky_relu
+    # activation = tf.nn.leaky_relu
+    activation = tf.nn.relu
     regularizer = tf.contrib.layers.l2_regularizer(scale=0.01)
 
     layer1 = Block(X, num_features, activation, bias_initializer, kernel_initializer, regularizer,
@@ -164,6 +163,7 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     dense = tf.layers.dense(dense, num_features, activation=activation)
     dense = tf.layers.dropout(dense, rate=0.4)
 
+
     # ------------------------- SIFT Layer 1 ------------------------------
 
     denseSIFT = tf.layers.dense(SIFT,num_features,
@@ -176,8 +176,9 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     # ------------------------- Combined Layer ------------------------------
     dense_combined = tf.reduce_mean([denseSIFT_drop, dense], 0)  # [1.5, 1.5]
 
+
     # Pre-activation
-    logits = tf.layers.dense(inputs=dense_combined,units=7)
+    logits = tf.layers.dense(inputs=dense_combined,units=outputsize)
 
     # Pass logits through activation function
     preds = tf.nn.softmax(logits)
@@ -187,6 +188,12 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     batch_loss = tf.reduce_mean(batch_xentropy)
 
     return logits, preds, batch_loss
+
+    # import models_py.stanford_2 as md
+
+    # return md.NeuralNet(X, Y, SIFT, convlayer_sizes=convlayer_sizes, filter_shape=filter_shape, outputsize=outputsize, padding=padding, SIFT_size = SIFT_size)
+
+    
 
 
 
@@ -367,7 +374,7 @@ def getSiftFeatures(data, n_cluster = N_CLUSTER):
 
 
 
-def preprocess(image, zoom=0, target_width=None, LEFT_EYE_IDXS=LEFT_EYE_IDXS, RIGHT_EYE_IDXS=RIGHT_EYE_IDXS):
+def preprocess(image, detector, predictor, zoom=0, target_width=None, LEFT_EYE_IDXS=LEFT_EYE_IDXS, RIGHT_EYE_IDXS=RIGHT_EYE_IDXS):
     '''
     This function does:
     1. Histogram equalization
@@ -385,10 +392,6 @@ def preprocess(image, zoom=0, target_width=None, LEFT_EYE_IDXS=LEFT_EYE_IDXS, RI
         target_height = image.shape[0]
 
     target_distance = target_width*(target_right_eye_pos[0] - target_left_eye_pos[0])
-
-    p = "shape_predictor_68_face_landmarks.dat"
-    detector = dlib.get_frontal_face_detector()
-    predictor = dlib.shape_predictor(p)
     
     if len(image.shape) > 2:
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -403,6 +406,7 @@ def preprocess(image, zoom=0, target_width=None, LEFT_EYE_IDXS=LEFT_EYE_IDXS, RI
     faces, landmarks = detect_facial_landmarks(img, detector, predictor, draw=False, drawIdx=LEFT_EYE_IDXS+RIGHT_EYE_IDXS)
 
     for face, landmark in zip(faces, landmarks):
+        # print('Face : ', face)
 
         # 3 Calculate the centre of left and right eyes
         left_eye = landmark[LEFT_EYE_IDXS,]
@@ -447,15 +451,19 @@ def preprocess(image, zoom=0, target_width=None, LEFT_EYE_IDXS=LEFT_EYE_IDXS, RI
         # cv2.rectangle(img,(face.left(),face.bottom()),(face.right(),face.top()),(255,255,0),2)
 
         # apply the affine transformation
-        final_img = cv2.warpAffine(img, M, (img.shape[1], img.shape[0]), flags=cv2.INTER_CUBIC)
+        final_img = cv2.warpAffine(img, M, (target_width, target_width), flags=cv2.INTER_CUBIC)
+        # print('Final image dimension ', final_img)
 
         # Detect face again on the now aligned image
-        rects = detector(final_img, 0)
-        for rect in rects:
-            cropped_face = final_img[rect.top():rect.bottom(), rect.left():rect.right()]
-            print('target widht : ', target_width)
-            cropped_face = cv2.resize(cropped_face, (target_width, target_width))
-            processed_images.append(cropped_face)
+        # rects = detector(final_img, 0)
+        # print('Faces detected : ', len(rects))
+
+        # for rect in rects:
+        #     cropped_face = final_img[rect.top():rect.bottom(), rect.left():rect.right()]
+        #     # print('target widht : ', target_width)
+        #     cropped_face = cv2.resize(cropped_face, (target_width, target_width))
+        #     processed_images.append(cropped_face)
+        processed_images.append(final_img)
 
     return processed_images, faces
 
@@ -470,100 +478,4 @@ def plot(img, final_img):
     plt.imshow(final_img)
     plt.show()
     
-
-
-def train(sess, data, n_epochs, batch_size,
-          summaries_op, accuracy_summary_op, train_writer, test_writer,
-          X, Y, SIFT, train_op, loss_op, accuracy_op, ratio=[70, 20, 10], N=N_CLUSTER):
-
-    # record starting time
-    train_start = time.time()
-    saver = tf.train.Saver()
-    # train_data, test_data, validation_data = split_data(data, ratio)
-    
-    X_train, X_test, y_train, y_test, SIFT_train, SIFT_test = train_test_split(data[0], data[1], data[2], test_size=0.30)
-
-    train_data = [X_train, y_train]
-    test_data = [X_test, y_test]
-
-    # if N > SIFT_train.shape[0]:
-    #   N = int(sqrt(SIFT_train.shape[0]))
-
-    # Step 1 : Extract key points and descriptors
-    data_kp_train = extractKeyPoints(SIFT_train)
-    data_kp_test = extractKeyPoints(SIFT_test)
-
-    # Get descriptors and get clusters
-    clusterer = getCluster(data_kp_train, n_cluster=N)
-    
-    # Get bag of features count for each image
-    SIFT_data_train = convert2bagOfFeatures(data_kp_train, clusterer, n_cluster = N)
-    SIFT_data_test = convert2bagOfFeatures(data_kp_test, clusterer, n_cluster = N)
-
-    # Append result to train_data
-    train_data.append(SIFT_data_train/N)
-    test_data.append(SIFT_data_test/N)
-
-
-    # Run through the entire dataset n_training_epochs times
-    train_loss=100;
-    for i in range(n_epochs):
-        # Initialise statistics
-        training_loss = 0
-        epoch_start = time.time()
-
-        batches = get_batch(train_data, batch_size)
-        t_batches = get_batch(test_data, 10)
-        n_batches = len(batches)
-
-        #
-
-        # Run the SGD train op for each minibatch
-        for j in range(n_batches):
-            batch = batches[j]
-
-            # Run a training step
-            trainstep_result, batch_loss, summary = \
-                sess.run([train_op, loss_op, summaries_op], feed_dict={X: batch[0], Y: batch[1], SIFT: batch[2]})
-            train_writer.add_summary(summary, j)
-            training_loss += batch_loss
-
-        # Timing and statistics
-        epoch_duration = round(time.time() - epoch_start, 2)
-        ave_train_loss = training_loss / n_batches
-
-        # Get accuracy
-        train_accuracy = \
-            accuracy(sess, train_data, batches, batch_size, X, Y, accuracy_op)
-        test_accuracy = \
-            accuracy(sess, test_data, t_batches, batch_size, X, Y, accuracy_op)
-
-        if train_loss > ave_train_loss:
-            save_path = saver.save(sess, "./models/model.ckpt")
-            train_loss = ave_train_loss
-            print("saved checkpoint")
-
-        # log accuracy at the current epoch on training and test sets
-        train_acc_summary = sess.run(accuracy_summary_op,
-                                     feed_dict={accuracy_placeholder: train_accuracy})
-        train_writer.add_summary(train_acc_summary, i)
-        test_acc_summary = sess.run(accuracy_summary_op,
-                                    feed_dict={accuracy_placeholder: test_accuracy})
-        test_writer.add_summary(test_acc_summary, i)
-        [writer.flush() for writer in [train_writer, test_writer]]
-
-        train_duration = round(time.time() - train_start, 2)
-        # Output to montior training
-        print('Epoch {0}, Training Loss: {1:.5f}, Test accuracy: {2:.5f}, \
-time: {3}s, total time: {4}s'.format(i, ave_train_loss,
-                                     test_accuracy, epoch_duration,
-                                     train_duration))
-    print('Total training time: {0}s'.format(train_duration))
-    print('Confusion Matrix:')
-    true_class = tf.argmax(Y, 1)
-    predicted_class = tf.argmax(preds_op, 1)
-    cm = tf.confusion_matrix(predicted_class, true_class)
-    print(sess.run(cm, feed_dict={X: test_data[0],
-                                  Y: test_data[1],
-                                  SIFT: test_data[2]}))
 

@@ -145,6 +145,7 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
     dense = tf.layers.dense(dense, num_features, activation=activation)
     dense = tf.layers.dropout(dense, rate=0.4)
 
+
     # ------------------------- SIFT Layer 1 ------------------------------
 
     denseSIFT = tf.layers.dense(SIFT,num_features,
@@ -156,6 +157,7 @@ def NeuralNet(X, Y, SIFT, convlayer_sizes=[10, 10], filter_shape=[3, 3], outputs
 
     # ------------------------- Combined Layer ------------------------------
     dense_combined = tf.reduce_mean([denseSIFT_drop, dense], 0)  # [1.5, 1.5]
+
 
     # Pre-activation
     logits = tf.layers.dense(inputs=dense_combined,units=outputsize)
@@ -316,7 +318,7 @@ def getSiftFeatures(data, n_cluster = N_CLUSTER):
 
 
 def train(sess, data, n_epochs, batch_size,
-          summaries_op, accuracy_summary_op, train_writer, test_writer,
+          summaries_op, accuracy_summary_op, train_writer, test_writer, train_loss_writer,
           X, Y, SIFT, train_op, loss_op, accuracy_op, ratio=[70, 20, 10], N=N_CLUSTER):
 
     # record starting time
@@ -350,7 +352,8 @@ def train(sess, data, n_epochs, batch_size,
 
 
     # Run through the entire dataset n_training_epochs times
-    train_loss=100;
+    train_loss=100
+    max_accuracy = 0
     for i in range(n_epochs):
         # Initialise statistics
         training_loss = 0
@@ -382,19 +385,22 @@ def train(sess, data, n_epochs, batch_size,
         test_accuracy = \
             accuracy(sess, test_data, t_batches, batch_size, X, Y, accuracy_op)
 
-        if train_loss > ave_train_loss:
+        if train_loss > ave_train_loss and max_accuracy < test_accuracy:
             save_path = saver.save(sess, "./models/model.ckpt")
             train_loss = ave_train_loss
             print("saved checkpoint")
 
         # log accuracy at the current epoch on training and test sets
-        train_acc_summary = sess.run(accuracy_summary_op,
-                                     feed_dict={accuracy_placeholder: train_accuracy})
+        train_acc_summary = sess.run(accuracy_summary_op,feed_dict={accuracy_placeholder: train_accuracy})
         train_writer.add_summary(train_acc_summary, i)
-        test_acc_summary = sess.run(accuracy_summary_op,
-                                    feed_dict={accuracy_placeholder: test_accuracy})
+
+        test_acc_summary = sess.run(accuracy_summary_op,feed_dict={accuracy_placeholder: test_accuracy})
         test_writer.add_summary(test_acc_summary, i)
-        [writer.flush() for writer in [train_writer, test_writer]]
+
+        train_loss_summary = sess.run(accuracy_summary_op,feed_dict={accuracy_placeholder: train_loss})
+        train_loss_writer.add_summary(train_loss_summary, i)
+
+        [writer.flush() for writer in [train_writer, test_writer, train_loss_writer]]
 
         train_duration = round(time.time() - train_start, 2)
         # Output to montior training
@@ -461,8 +467,9 @@ if __name__ == "__main__":
     batch_size = 64
     learning_rate = 0.005
 
-    if N_CLUSTER > data[0].shape[0]:
-        N_CLUSTER = int(sqrt(data[0].shape[0]))
+    # if N_CLUSTER > data[0].shape[0]:
+    #     N_CLUSTER = int(sqrt(data[0].shape[0]))
+    N_CLUSTER = 10
 
     # Define dimension of input, X and output Y
     X = tf.placeholder(dtype=tf.float32, shape=[None, input_dim], name="image_input")
@@ -471,16 +478,23 @@ if __name__ == "__main__":
     SIFT = tf.placeholder(dtype=tf.float32, shape=[None, N_CLUSTER-1], name="SIFT_input")
 
     # Define the CNN
-    logits_op, preds_op, loss_op = NeuralNet(
+    # logits_op, preds_op, loss_op = NeuralNet(
+    #     tf.reshape(X, [-1, img_shape[0], img_shape[1], 1]), Y, SIFT, convlayer_sizes=[output_dim, output_dim],
+    #     outputsize=output_dim, SIFT_size=2048)
+
+    import models_py.stanford_2 as md
+
+    logits_op, preds_op, loss_op = md.NeuralNet(
         tf.reshape(X, [-1, img_shape[0], img_shape[1], 1]), Y, SIFT, convlayer_sizes=[output_dim, output_dim],
         outputsize=output_dim, SIFT_size=2048)
+
     tf.summary.histogram('pre_activations', logits_op)
 
     # The training op performs a step of stochastic gradient descent on a minibatch
     # optimizer = tf.train.GradientDescentOptimizer # vanilla SGD
     # optimizer = tf.train.MomentumOptimizer # SGD with momentum
     optimizer = tf.train.AdamOptimizer  # ADAM - widely used optimiser (ref: http://arxiv.org/abs/1412.6980)
-    train_op = optimizer(epsilon=1.0).minimize(loss_op)
+    train_op = optimizer(epsilon=0.1).minimize(loss_op)
 
     # Prediction and accuracy ops
     accuracy_op = get_accuracy_op(preds_op, Y)
@@ -506,13 +520,14 @@ if __name__ == "__main__":
     dtstr = "{:%b_%d_%H-%M-%S}".format(datetime.now())
     train_writer = tf.summary.FileWriter('./summaries/' + tensorboard_name + '_' + dtstr + '/train', sess.graph)
     test_writer = tf.summary.FileWriter('./summaries/' + tensorboard_name + '_' + dtstr + '/test', sess.graph)
+    train_loss_writer = tf.summary.FileWriter('./summaries/' + tensorboard_name + '_' + dtstr + '/test_loss', sess.graph)
 
     # Train
     print('Starting Training...')
     print('main() argument, N: ', N_CLUSTER)
 
     train(sess, data, n_training_epochs, batch_size,
-          summaries_op, accuracy_summary_op, train_writer, test_writer,
+          summaries_op, accuracy_summary_op, train_writer, test_writer, train_loss_writer,
           X, Y, SIFT, train_op, loss_op, accuracy_op, N=N_CLUSTER)
 
     print('Training Complete')
